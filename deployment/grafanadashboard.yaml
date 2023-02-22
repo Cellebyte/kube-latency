@@ -41,6 +41,7 @@ spec:
         {
           "datasource": {
             "type": "prometheus",
+            "uid": "${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -121,6 +122,7 @@ spec:
             {
               "datasource": {
                 "type": "prometheus",
+                "uid": "${datasource}"
               },
               "editorMode": "code",
               "expr": "count(count(ping_durations_s_count) by (source_zone, source_node_name)) by (source_zone)",
@@ -139,6 +141,7 @@ spec:
         {
           "datasource": {
             "type": "prometheus",
+            "uid": "${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -223,6 +226,7 @@ spec:
             {
               "datasource": {
                 "type": "prometheus",
+                "uid": "${datasource}"
               },
               "editorMode": "code",
               "expr": "(16*1024*1024)/(sum(abs(delta(download_durations_s_sum{}[1m]))< 50) by (source_zone,dest_zone)/sum(abs(delta(download_durations_s_count{}[1m]))) by (source_zone,dest_zone))",
@@ -242,6 +246,7 @@ spec:
         {
           "datasource": {
             "type": "prometheus",
+            "uid": "${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -326,6 +331,7 @@ spec:
             {
               "datasource": {
                 "type": "prometheus",
+                "uid": "${datasource}"
               },
               "editorMode": "code",
               "expr": "avg(ping_durations_s{quantile='0.99'} > 0) by (source_zone, dest_zone)",
@@ -348,7 +354,25 @@ spec:
       "style": "dark",
       "tags": [],
       "templating": {
-        "list": []
+        "list": [
+          {
+            "current": {
+              "selected": false,
+              "text": "Prometheus",
+              "value": "Prometheus"
+            },
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "prometheus",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+          }
+        ]
       },
       "time": {
         "from": "now-30m",
@@ -382,6 +406,5 @@ spec:
       "timezone": "browser",
       "title": "Pod network",
       "uid": "2xBhceJVz",
-      "version": 1,
       "weekStart": ""
     }
