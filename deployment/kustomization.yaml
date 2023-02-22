@@ -1,0 +1,10 @@
+resources:
+  - namespace.yaml
+  - daemonset.yaml
+  - service.yaml
+  - networkpolicy.yaml
+  - role.yaml
+  - serviceaccount.yaml
+  - rolebinding.yaml
+  - servicemonitor.yaml
+  - grafanadashboard.yaml

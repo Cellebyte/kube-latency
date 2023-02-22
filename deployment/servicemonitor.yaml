@@ -5,11 +5,11 @@ metadata:
   name: kube-latency
   namespace: kube-latency
   labels:
-    app.kubernets.io/name: kube-latency
+    app.kubernetes.io/name: kube-latency
 spec:
   selector:
     matchLabels:
-      app.kubernets.io/name: kube-latency
+      app.kubernetes.io/name: kube-latency
   namespaceSelector:
     matchNames:
     - kube-latency

@@ -16,5 +16,4 @@ spec:
     protocol: TCP
     name: metrics
   selector:
-    name: kube-latency
-    app: kube-latency
+    app.kubernetes.io/name: kube-latency

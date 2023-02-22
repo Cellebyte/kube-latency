@@ -4,6 +4,8 @@ kind: NetworkPolicy
 metadata:
   name: allow-ingress
   namespace: kube-latency
+  labels:
+    app.kubernetes.io/name: kube-latency
 spec:
   podSelector:
     matchLabels:

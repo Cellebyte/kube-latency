@@ -1,0 +1,17 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: "2022-06-28T09:35:02Z"
+  name: kube-latency
+  namespace: kube-latency
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - nodes
+  - services
+  verbs:
+  - get
+  - list
+  - watch

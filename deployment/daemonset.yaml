@@ -16,9 +16,10 @@ spec:
       labels:
         app.kubernetes.io/name: kube-latency
     spec:
+      serviceAccountName: kube-latency
       containers:
       - name: kube-latency
-        image: "harbor.das-schiff.telekom.de/schiff-platform/kube-latency:latest"
+        image: "harbor.das-schiff.telekom.de/schiff/kube-latency:0.0.1"
         imagePullPolicy: Always
         command:
         - /kube-latency

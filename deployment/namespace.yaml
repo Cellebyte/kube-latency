@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    name: kube-latency
+    schiff.telekom.de/owner: kube-latency-test
+  name: kube-latency
