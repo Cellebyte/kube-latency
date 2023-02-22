@@ -1,0 +1,45 @@
+---
+# Source: kube-latency/templates/deployment-or-daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kube-latency
+  namespace: kube-latency
+  labels:
+    app.kubernetes.io/name: kube-latency
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-latency
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kube-latency
+    spec:
+      containers:
+      - name: kube-latency
+        image: "harbor.das-schiff.telekom.de/schiff-platform/kube-latency:latest"
+        imagePullPolicy: Always
+        command:
+        - /kube-latency
+        - -service-name
+        - kube-latency
+        env:
+          - name: KUBE_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KUBE_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        ports:
+        - containerPort: 8080
+          name: metrics
+        resources:
+            limits:
+              cpu: 1
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi

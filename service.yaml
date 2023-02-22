@@ -1,0 +1,20 @@
+---
+# Source: kube-latency/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-latency
+  namespace: kube-latency
+  labels:
+    app.kubernetes.io/name: kube-latency
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: metrics
+  selector:
+    name: kube-latency
+    app: kube-latency

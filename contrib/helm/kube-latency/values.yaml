@@ -4,7 +4,7 @@
 replicaCount: 3
 type: DaemonSet
 image:
-  repository: simonswine/kube-latency
+  repository: docker.io/simonswine/kube-latency
   tag: latest
   pullPolicy: Always
 service:

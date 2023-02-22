@@ -22,14 +22,17 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
+)
+
+var (
+	_ ResettableRESTMapper = MultiRESTMapper{}
 )
 
 // MultiRESTMapper is a wrapper for multiple RESTMappers.
 type MultiRESTMapper []RESTMapper
 
 func (m MultiRESTMapper) String() string {
-	nested := []string{}
+	nested := make([]string, 0, len(m))
 	for _, t := range m {
 		currString := fmt.Sprintf("%v", t)
 		splitStrings := strings.Split(currString, "\n")
@@ -180,7 +183,7 @@ func (m MultiRESTMapper) RESTMapping(gk schema.GroupKind, versions ...string) (*
 	if len(errors) > 0 {
 		return nil, utilerrors.NewAggregate(errors)
 	}
-	return nil, &NoKindMatchError{PartialKind: gk.WithVersion("")}
+	return nil, &NoKindMatchError{GroupKind: gk, SearchedVersions: versions}
 }
 
 // RESTMappings returns all possible RESTMappings for the provided group kind, or an error
@@ -205,27 +208,13 @@ func (m MultiRESTMapper) RESTMappings(gk schema.GroupKind, versions ...string) (
 		return nil, utilerrors.NewAggregate(errors)
 	}
 	if len(allMappings) == 0 {
-		return nil, &NoKindMatchError{PartialKind: gk.WithVersion("")}
+		return nil, &NoKindMatchError{GroupKind: gk, SearchedVersions: versions}
 	}
 	return allMappings, nil
 }
 
-// AliasesForResource finds the first alias response for the provided mappers.
-func (m MultiRESTMapper) AliasesForResource(alias string) ([]string, bool) {
-	seenAliases := sets.NewString()
-	allAliases := []string{}
-	handled := false
-
+func (m MultiRESTMapper) Reset() {
 	for _, t := range m {
-		if currAliases, currOk := t.AliasesForResource(alias); currOk {
-			for _, currAlias := range currAliases {
-				if !seenAliases.Has(currAlias) {
-					allAliases = append(allAliases, currAlias)
-					seenAliases.Insert(currAlias)
-				}
-			}
-			handled = true
-		}
+		MaybeResetRESTMapper(t)
 	}
-	return allAliases, handled
 }

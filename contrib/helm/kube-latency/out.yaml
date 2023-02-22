@@ -1,0 +1,205 @@
+---
+# Source: kube-latency/charts/prometheus/templates/server-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: prometheus
+    chart: prometheus-3.0.0
+    component: "server"
+    heritage: Helm
+    release: release-name
+  name: release-name-prometheus-server
+data:
+  alerts: ""
+  prometheus.yml: |-
+    rule_files:
+      - /etc/config/rules
+      - /etc/config/alerts
+  
+    scrape_configs:
+      # * `prometheus.io/kube-latency`: Only scrape pods that have a value of `true`
+      # * `prometheus.io/path`: If the metrics path is not `/metrics` override this.
+      # * `prometheus.io/port`: Scrape the pod on the indicated port instead of the default of `9102`.
+      - job_name: 'kube-latency-pods'
+        scrape_interval: 20s
+  
+        kubernetes_sd_configs:
+          - role: pod
+  
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_kube_latency]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: (.+):(?:\d+);(\d+)
+            replacement: ${1}:${2}
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
+  rules: ""
+---
+# Source: kube-latency/charts/prometheus/templates/server-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: prometheus
+    chart: prometheus-3.0.0
+    component: "server"
+    heritage: Helm
+    release: release-name
+  name: release-name-prometheus-server
+spec:
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 9090
+  selector:
+    app: prometheus
+    component: "server"
+    release: release-name
+  type: "ClusterIP"
+---
+# Source: kube-latency/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-kube-latency
+  labels:
+    chart: "kube-latency-0.1.0"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    name: release-name-kube-latency
+    app: kube-latency
+---
+# Source: kube-latency/templates/deployment-or-daemonset.yaml
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: release-name-kube-latency
+  labels:
+    chart: "kube-latency-0.1.0"
+spec:
+  template:
+    metadata:
+      labels:
+        name: release-name-kube-latency
+        app: kube-latency
+      annotations:
+        prometheus.io/kube-latency: "true"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+      - name: kube-latency
+        image: "docker.io/simonswine/kube-latency:latest"
+        imagePullPolicy: Always
+        command:
+        - /kube-latency
+        - -service-name
+        - release-name-kube-latency
+        ports:
+        - containerPort: 8080
+        env:
+          - name: KUBE_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KUBE_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        ports:
+        - containerPort: 8080
+        resources:
+            limits:
+              cpu: 1
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: kube-latency/charts/prometheus/templates/server-deployment.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: prometheus
+    chart: prometheus-3.0.0
+    component: "server"
+    heritage: Helm
+    release: release-name
+  name: release-name-prometheus-server
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prometheus
+        component: "server"
+        release: release-name
+    spec:
+      containers:
+        - name: prometheus-server-configmap-reload
+          image: "jimmidyson/configmap-reload:v0.1"
+          imagePullPolicy: "IfNotPresent"
+          args:
+            - --volume-dir=/etc/config
+            - --webhook-url=http://localhost:9090/-/reload
+          resources:
+            {}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/config
+              readOnly: true
+
+        - name: prometheus-server
+          image: "prom/prometheus:v1.5.2"
+          imagePullPolicy: "IfNotPresent"
+          args:
+            - --config.file=/etc/config/prometheus.yml
+            - --storage.local.path=/data
+            - --web.console.libraries=/etc/prometheus/console_libraries
+            - --web.console.templates=/etc/prometheus/consoles
+          ports:
+            - containerPort: 9090
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: 9090
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
+          resources:
+            {}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/config
+            - name: storage-volume
+              mountPath: /data
+              subPath: ""
+      terminationGracePeriodSeconds: 300
+      volumes:
+        - name: config-volume
+          configMap:
+            name: release-name-prometheus-server
+        - name: storage-volume
+          emptyDir: {}
