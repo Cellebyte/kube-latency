@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-pod
+  namespace: kube-latency
+  labels:
+    app.kubernetes.io/name: debug-pod
+spec:
+  restartPolicy: Never
+  containers:
+  - image: docker.io/nicolaka/netshoot
+    name: netshoot
+    securityContext:
+      runAsUser: 1000
+      capabilities:
+        add:
+        - NET_ADMIN
+        - NET_RAW
+    command: ["ping","localhost"]
+    resources:
+      requests:
+        cpu: 100m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi

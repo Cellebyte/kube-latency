@@ -194,7 +194,7 @@ func (a *App) getPodLabels(podName string) (*Labels, error) {
 
 	ip := net.ParseIP(pod.Status.PodIP)
 	if ip == nil {
-		return nil, fmt.Errorf("error parsing podIP %s: %s", pod.Status.PodIP)
+		return nil, fmt.Errorf("error parsing podIP %s: %s", podName, pod.Status.PodIP)
 	}
 
 	return &Labels{
@@ -266,7 +266,10 @@ func (a *App) testDownload(source, dest *Labels) {
 	labels = append(labels, source.Values()...)
 	labels = append(labels, dest.Values()...)
 
-	a.metricDownloadDurations.WithLabelValues(labels...).Observe(result.ContentTransfer(end).Seconds())
+	var elapsedTime = result.ContentTransfer(end).Seconds()
+	log.Infof("test ping from '%s' took: [%fs]", url, elapsedTime)
+
+	a.metricDownloadDurations.WithLabelValues(labels...).Observe(elapsedTime)
 	a.metricDownloadProbeSize.WithLabelValues(labels...).Set(float64(*dataSize))
 }
 
@@ -280,7 +283,9 @@ func (a *App) testPing(source, dest *Labels) {
 		if err != nil {
 			log.Warnf("test ping from '%s' failed: %s", url, err)
 		}
-		a.metricPingDurations.WithLabelValues(labels...).Observe(result.ContentTransfer(end).Seconds())
+		var elapsedTime = result.ContentTransfer(end).Seconds()
+		log.Infof("test ping from '%s' took: [%fs]", url, elapsedTime)
+		a.metricPingDurations.WithLabelValues(labels...).Observe(elapsedTime)
 	}
 }
 

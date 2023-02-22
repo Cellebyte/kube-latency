@@ -1,10 +1,13 @@
 resources:
   - namespace.yaml
-  - daemonset.yaml
   - service.yaml
+  - grafanadashboard.yaml
   - networkpolicy.yaml
   - role.yaml
+  - clusterrole.yaml
   - serviceaccount.yaml
   - rolebinding.yaml
+  - clusterrolebinding.yaml
+  - daemonset.yaml
   - servicemonitor.yaml
-  - grafanadashboard.yaml
+  - pod.yaml

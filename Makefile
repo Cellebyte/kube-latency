@@ -2,7 +2,7 @@ ACCOUNT=simonswine
 APP_NAME=kube-latency
 
 PACKAGE_NAME=github.com/${ACCOUNT}/${APP_NAME}
-GO_VERSION=1.8
+GO_VERSION=1.20
 
 DOCKER_IMAGE=${ACCOUNT}/${APP_NAME}
 

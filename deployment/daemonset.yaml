@@ -19,7 +19,7 @@ spec:
       serviceAccountName: kube-latency
       containers:
       - name: kube-latency
-        image: "harbor.das-schiff.telekom.de/schiff/kube-latency:0.0.1"
+        image: "harbor.das-schiff.telekom.de/schiff/kube-latency:0.0.7"
         imagePullPolicy: Always
         command:
         - /kube-latency
