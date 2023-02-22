@@ -12,8 +12,7 @@ import (
 // End sets the time when reading response is done.
 // This must be called after reading response body.
 func (r *Result) End(t time.Time) {
-	r.trasferDone = t
-	r.t5 = t // for Formatter
+	r.transferDone = t
 
 	// This means result is empty (it does nothing).
 	// Skip setting value(contentTransfer and total will be zero).
@@ -21,8 +20,22 @@ func (r *Result) End(t time.Time) {
 		return
 	}
 
-	r.contentTransfer = r.trasferDone.Sub(r.transferStart)
-	r.total = r.trasferDone.Sub(r.dnsStart)
+	r.contentTransfer = r.transferDone.Sub(r.transferStart)
+	r.total = r.transferDone.Sub(r.dnsStart)
+}
+
+// ContentTransfer returns the duration of content transfer time.
+// It is from first response byte to the given time. The time must
+// be time after read body (go-httpstat can not detect that time).
+func (r *Result) ContentTransfer(t time.Time) time.Duration {
+	return t.Sub(r.serverDone)
+}
+
+// Total returns the duration of total http request.
+// It is from dns lookup start time to the given time. The
+// time must be time after read body (go-httpstat can not detect that time).
+func (r *Result) Total(t time.Time) time.Duration {
+	return t.Sub(r.dnsStart)
 }
 
 func withClientTrace(ctx context.Context, r *Result) context.Context {
