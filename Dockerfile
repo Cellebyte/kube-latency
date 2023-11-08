@@ -8,6 +8,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -o kube-latency -ldflags "-
 
 FROM scratch as final
 COPY --from=build /app/kube-latency .
+COPY --from=build /etc/passwd /etc/passwd
+USER 1000:1000
 CMD ["/kube-latency"]
 LABEL org.label-schema.vcs-ref=$GIT_COMMIT \
       org.label-schema.vcs-url="https://github.com/simonswine/kube-latency" \

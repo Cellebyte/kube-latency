@@ -10,4 +10,8 @@ resources:
   - clusterrolebinding.yaml
   - daemonset.yaml
   - servicemonitor.yaml
-  - pod.yaml
+  # - pod.yaml
+images:
+- name: kube-latency-image
+  newName: "<your_repository>/kube-latency" # please update the repository accordingly
+  newTag: "0.1.1"

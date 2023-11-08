@@ -17,12 +17,22 @@ spec:
         app.kubernetes.io/name: kube-latency
     spec:
       serviceAccountName: kube-latency
+      securityContext:
+        runAsNonRoot: true
       containers:
       - name: kube-latency
-        image: "harbor.das-schiff.telekom.de/schiff/kube-latency:0.0.7"
+        image: "kube-latency-image:0.1.1"
         imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
         command:
         - /kube-latency
+        - -test-frequency
+        - "5"
         - -service-name
         - kube-latency
         env:
@@ -39,8 +49,10 @@ spec:
           name: metrics
         resources:
             limits:
+              ephemeral-storage: 1Mi
               cpu: 1
               memory: 1024Mi
             requests:
+              ephemeral-storage: 0Mi
               cpu: 100m
               memory: 128Mi
