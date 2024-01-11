@@ -1,6 +1,6 @@
 module github.com/simonswine/kube-latency
 
-go 1.20
+go 1.21
 
 require (
 	github.com/dustin/randbo v0.0.0-20140428231429-7f1b564ca724

@@ -14,4 +14,4 @@ spec:
     matchNames:
     - kube-latency
   endpoints:
-  - port: metrics
+  - port: http

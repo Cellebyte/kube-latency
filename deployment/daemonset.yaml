@@ -46,10 +46,10 @@ spec:
                 fieldPath: metadata.namespace
         ports:
         - containerPort: 8080
-          name: metrics
+          name: http
         resources:
             limits:
-              ephemeral-storage: 1Mi
+              ephemeral-storage: 15Mi
               # cpu: 1
               memory: 1024Mi
             requests:

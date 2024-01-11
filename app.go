@@ -5,11 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/dustin/randbo"
@@ -30,28 +31,43 @@ const EnvKubePodName = "KUBE_POD_NAME"
 type App struct {
 	rand io.Reader
 
-	kubeClient    *kubernetes.Clientset
-	kubeNamespace string
-	kubePodName   string
-	myService     *v1.Service
-	zonePerNode   map[string]string
+	kubeClient        *kubernetes.Clientset
+	kubeNamespace     string
+	kubePodName       string
+	kubeClusterDomain string
+
+	myService *v1.Service
+
+	zonePerNode map[string]string
 
 	metricDownloadProbeSize *prometheus.GaugeVec
 	metricDownloadDurations *prometheus.SummaryVec
 	metricPingDurations     *prometheus.SummaryVec
+	metricHTTPDurations     *prometheus.SummaryVec
+
+	metricDNSLookupDurations        *prometheus.SummaryVec
+	metricTCPConnectionDurations    *prometheus.SummaryVec
+	metricServerProcessingDurations *prometheus.SummaryVec
+
+	metricStartTransferDurations *prometheus.SummaryVec
 }
 
 type Labels struct {
-	PodName  string
-	PodIP    net.IP
-	NodeName string
-	Zone     string
+	PodName         string
+	PodFQDN         string
+	PodPort         uint16
+	PodPortName     string
+	PodPortProtocol string
+	NodeName        string
+	Zone            string
 }
 
 func LabelsKeys(prefix string) []string {
 	return []string{
-		prefix + "pod_name",
-		prefix + "pod_ip",
+		prefix + "pod",
+		prefix + "pod_fqdn",
+		prefix + "pod_port_name",
+		prefix + "pod_port_protocol",
 		prefix + "zone",
 		prefix + "node_name",
 	}
@@ -59,7 +75,9 @@ func LabelsKeys(prefix string) []string {
 func (l *Labels) Values() []string {
 	return []string{
 		l.PodName,
-		l.PodIP.String(),
+		l.PodFQDN,
+		l.PodPortName,
+		l.PodPortProtocol,
 		l.Zone,
 		l.NodeName,
 	}
@@ -80,7 +98,7 @@ func NewApp() *App {
 		),
 		metricDownloadDurations: prometheus.NewSummaryVec(
 			prometheus.SummaryOpts{
-				Name:       "download_durations_s",
+				Name:       "download_durations_seconds",
 				Help:       "Download durations in seconds",
 				Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 			},
@@ -88,8 +106,49 @@ func NewApp() *App {
 		),
 		metricPingDurations: prometheus.NewSummaryVec(
 			prometheus.SummaryOpts{
-				Name:       "ping_durations_s",
+				Name:       "ping_durations_seconds",
 				Help:       "Ping durations in seconds",
+				Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+			},
+			labels,
+		),
+		metricHTTPDurations: prometheus.NewSummaryVec(
+			prometheus.SummaryOpts{
+				Name:       "http_durations_seconds",
+				Help:       "HTTP content-transfer durations in seconds",
+				Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+			},
+			labels,
+		),
+
+		metricDNSLookupDurations: prometheus.NewSummaryVec(
+			prometheus.SummaryOpts{
+				Name:       "dns_query_durations_seconds",
+				Help:       "DNS query durations in seconds",
+				Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+			},
+			labels,
+		),
+		metricTCPConnectionDurations: prometheus.NewSummaryVec(
+			prometheus.SummaryOpts{
+				Name:       "tcp_connect_durations_seconds",
+				Help:       "TCP connect durations in seconds",
+				Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+			},
+			labels,
+		),
+		metricStartTransferDurations: prometheus.NewSummaryVec(
+			prometheus.SummaryOpts{
+				Name:       "http_connect_durations_seconds",
+				Help:       "HTTP connect durations in seconds",
+				Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+			},
+			labels,
+		),
+		metricServerProcessingDurations: prometheus.NewSummaryVec(
+			prometheus.SummaryOpts{
+				Name:       "http_server_durations_seconds",
+				Help:       "HTTP server processing durations in seconds",
 				Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 			},
 			labels,
@@ -135,8 +194,17 @@ func (a *App) testLoop() {
 			LabelSelector: serviceLabels.AsSelector().String(),
 		})
 		if err != nil {
-			log.Warn("failed to list pods with selector '%s': %s", serviceLabels.AsSelector().String(), err)
+			log.Warnf("failed to list pods with selector '%s': %s", serviceLabels.AsSelector().String(), err)
 		}
+		var discoveryFQDN = fmt.Sprintf("%s.%s.svc.%s", a.myService.Name, a.kubeNamespace, a.kubeClusterDomain)
+		// get latest dns srv record information
+		portName := a.myService.Spec.Ports[len(a.myService.Spec.Ports)-1].Name
+		portProtocol := strings.ToLower(string(a.myService.Spec.Ports[len(a.myService.Spec.Ports)-1].Protocol))
+		cname, srvs, err := net.LookupSRV(portName, portProtocol, discoveryFQDN)
+		if err != nil {
+			log.Warnf("failed to query the service SRV discovery FQDN '%s': %s", discoveryFQDN, err)
+		}
+		log.Infof("Discovered endpoints [%d] on %s", len(srvs), cname)
 
 		destinations := []*Labels{}
 		var source *Labels = nil
@@ -147,11 +215,28 @@ func (a *App) testLoop() {
 			if podIP == nil {
 				continue
 			}
+			// find my RDNS entries
+			ptrRecords, err := net.LookupAddr(string(podIP))
+			if err != nil {
+				log.Warnf("no RDNS entry for podIP %s: %v", string(podIP), err)
+				continue
+			}
+			// get my SRV Record from the service discovery
+			var podSRV *net.SRV
+			for _, srv := range srvs {
+				if slices.Contains(ptrRecords, srv.Target) {
+					podSRV = srv
+					break
+				}
+			}
 			l := &Labels{
-				Zone:     a.getZoneForNode(pod.Spec.NodeName),
-				PodName:  pod.Name,
-				PodIP:    podIP,
-				NodeName: pod.Spec.NodeName,
+				Zone:            a.getZoneForNode(pod.Spec.NodeName),
+				PodName:         pod.Name,
+				PodFQDN:         podSRV.Target,
+				PodPort:         podSRV.Port,
+				PodPortProtocol: portProtocol,
+				PodPortName:     portName,
+				NodeName:        pod.Spec.NodeName,
 			}
 			if pod.Name == a.kubePodName {
 				source = l
@@ -179,36 +264,8 @@ func (a *App) testLoop() {
 	}
 }
 
-func (a *App) getPodLabels(podName string) (*Labels, error) {
-	// get my pod object
-	pod, err := a.kubeClient.CoreV1().Pods(a.kubeNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get pod %s/%s: %s", a.kubeNamespace, a.kubePodName, err)
-	}
-
-	// get my node object
-	node, err := a.kubeClient.CoreV1().Nodes().Get(context.TODO(), pod.Spec.NodeName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get node %s: %s", pod.Spec.NodeName, err)
-	}
-
-	ip := net.ParseIP(pod.Status.PodIP)
-	if ip == nil {
-		return nil, fmt.Errorf("error parsing podIP %s: %s", podName, pod.Status.PodIP)
-	}
-
-	return &Labels{
-		PodIP:    ip,
-		PodName:  podName,
-		NodeName: node.Name,
-	}, nil
-}
-
 func (a *App) Run() {
 	log.Infof("starting kube-latency v%s (git %s, %s)", AppVersion, AppGitCommit, AppGitState)
-
-	// seed randomness
-	rand.Seed(time.Now().Unix())
 
 	// parse cli flags
 	flag.Parse()
@@ -240,11 +297,17 @@ func (a *App) Run() {
 	if err != nil {
 		log.Fatalf("failed to get my service %s/%s: %s", a.kubeNamespace, *serviceName, err)
 	}
+	// initialize the clusterDomain
+	a.kubeClusterDomain = *clusterDomain
 
 	// register prometheus metrics
 	prometheus.MustRegister(a.metricDownloadProbeSize)
 	prometheus.MustRegister(a.metricDownloadDurations)
 	prometheus.MustRegister(a.metricPingDurations)
+	prometheus.MustRegister(a.metricHTTPDurations)
+	prometheus.MustRegister(a.metricDNSLookupDurations)
+	prometheus.MustRegister(a.metricTCPConnectionDurations)
+	prometheus.MustRegister(a.metricStartTransferDurations)
 
 	// start periodic test
 	go a.testLoop()
@@ -257,7 +320,7 @@ func (a *App) Run() {
 }
 
 func (a *App) testDownload(source, dest *Labels) {
-	url := fmt.Sprintf("http://%s:8080/data", dest.PodIP.String())
+	url := fmt.Sprintf("%s://%s:%d/data", dest.PodPortName, dest.PodFQDN, dest.PodPort)
 	result, end, err := a.testHTTP(url)
 	if err != nil {
 		log.Warnf("test download from '%s' failed: %s", url, err)
@@ -274,7 +337,7 @@ func (a *App) testDownload(source, dest *Labels) {
 }
 
 func (a *App) testPing(source, dest *Labels) {
-	url := fmt.Sprintf("http://%s:8080/ping", dest.PodIP.String())
+	url := fmt.Sprintf("%s://%s:%d/ping", dest.PodPortName, dest.PodFQDN, dest.PodPort)
 	var labels []string
 	labels = append(labels, source.Values()...)
 	labels = append(labels, dest.Values()...)
@@ -284,8 +347,28 @@ func (a *App) testPing(source, dest *Labels) {
 			log.Warnf("test ping from '%s' failed: %s", url, err)
 		}
 		var elapsedTime = result.ContentTransfer(end).Seconds()
-		log.Infof("test ping from '%s' took: [%fs]", url, elapsedTime)
-		a.metricPingDurations.WithLabelValues(labels...).Observe(elapsedTime)
+		log.Debugf("test http transfer from '%s' took: [%fs]", url, elapsedTime)
+		a.metricHTTPDurations.WithLabelValues(labels...).Observe(elapsedTime)
+
+		var totalTime = result.Total(end).Seconds()
+		log.Infof("test ping from '%s' took: [%fs]", url, totalTime)
+		a.metricPingDurations.WithLabelValues(labels...).Observe(totalTime)
+
+		var dnsLookupTime = result.DNSLookup.Seconds()
+		log.Debugf("test dns lookup from '%s' took: [%fs]", url, dnsLookupTime)
+		a.metricDNSLookupDurations.WithLabelValues(labels...).Observe(dnsLookupTime)
+
+		var tcpTime = result.TCPConnection.Seconds()
+		log.Debugf("test tcp connect from '%s' took: [%fs]", url, tcpTime)
+		a.metricTCPConnectionDurations.WithLabelValues(labels...).Observe(tcpTime)
+
+		var serverProcessing = result.ServerProcessing.Seconds()
+		log.Debugf("test server processing time from '%s' took: [%fs]", url, serverProcessing)
+		a.metricServerProcessingDurations.WithLabelValues(labels...).Observe(serverProcessing)
+
+		var startTransfer = result.StartTransfer.Seconds()
+		log.Debugf("test http connect time from '%s' took: [%fs]", url, startTransfer)
+		a.metricStartTransferDurations.WithLabelValues(labels...).Observe(startTransfer)
 	}
 }
 
@@ -307,7 +390,7 @@ func (a *App) testHTTP(url string) (httpstat.Result, time.Time, error) {
 	if err != nil {
 		return result, time.Time{}, err
 	}
-	if _, err := io.Copy(ioutil.Discard, res.Body); err != nil {
+	if _, err := io.Copy(io.Discard, res.Body); err != nil {
 		return result, time.Time{}, err
 	}
 	res.Body.Close()
