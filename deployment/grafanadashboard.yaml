@@ -125,11 +125,11 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "count(count(ping_durations_s_count) by (source_zone, source_node_name)) by (source_zone)",
+              "expr": "count(count(ping_durations_seconds_count) by (source_zone, source_node_name)) by (source_zone)",
               "interval": "",
               "intervalFactor": 2,
               "legendFormat": "{{ source_zone }}",
-              "metric": "ping_durations_s_count",
+              "metric": "ping_durations_seconds_count",
               "range": true,
               "refId": "A",
               "step": 2
@@ -229,7 +229,7 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "(16*1024*1024)/(sum(abs(delta(download_durations_s_sum{}[1m]))< 50) by (source_zone,dest_zone)/sum(abs(delta(download_durations_s_count{}[1m]))) by (source_zone,dest_zone))",
+              "expr": "(16*1024*1024)/(sum(abs(delta(download_durations_seconds_sum{}[1m]))< 50) by (source_zone,dest_zone)/sum(abs(delta(download_durations_seconds_count{}[1m]))) by (source_zone,dest_zone))",
               "hide": false,
               "interval": "",
               "intervalFactor": 5,
@@ -334,12 +334,12 @@ spec:
                 "uid": "${datasource}"
               },
               "editorMode": "code",
-              "expr": "avg(ping_durations_s{quantile='0.99'} > 0) by (source_zone, dest_zone)",
+              "expr": "avg(ping_durations_seconds{quantile='0.99'} > 0) by (source_zone, dest_zone)",
               "hide": false,
               "interval": "",
               "intervalFactor": 4,
               "legendFormat": "{{dest_zone}} => {{ source_zone }}",
-              "metric": "ping_durations_s_count",
+              "metric": "ping_durations_seconds_count",
               "range": true,
               "refId": "A",
               "step": 4

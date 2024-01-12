@@ -216,9 +216,9 @@ func (a *App) testLoop() {
 				continue
 			}
 			// find my RDNS entries
-			ptrRecords, err := net.LookupAddr(string(podIP))
+			ptrRecords, err := net.LookupAddr(podIP.String())
 			if err != nil {
-				log.Warnf("no RDNS entry for podIP %s: %v", string(podIP), err)
+				log.Warnf("no RDNS entry for podIP %s: %v", podIP.String(), err)
 				continue
 			}
 			// get my SRV Record from the service discovery
