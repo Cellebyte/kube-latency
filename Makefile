@@ -29,29 +29,32 @@ build: depend version
 		-o ${BUILD_DIR}/${APP_NAME}-linux-amd64 \
 		-ldflags "-X main.AppGitState=${GIT_STATE} -X main.AppGitCommit=${GIT_COMMIT} -X main.AppVersion=${APP_VERSION}"
 
-docker: docker_all
+# docker: docker_all
 
-docker_%:
-	# create a container
-	$(eval CONTAINER_ID := $(shell docker create \
-		-i \
-		-w $(CONTAINER_DIR) \
-		golang:${GO_VERSION} \
-		/bin/bash -c "tar xf - && make $*" \
-	))
+# docker_%:
+# 	# create a container
+# 	$(eval CONTAINER_ID := $(shell docker create \
+# 		-i \
+# 		-w $(CONTAINER_DIR) \
+# 		golang:${GO_VERSION} \
+# 		/bin/bash -c "tar xf - && make $*" \
+# 	))
 	
-	# run build inside container
-	tar cf - . | docker start -a -i $(CONTAINER_ID)
+# 	# run build inside container
+# 	tar cf - . | docker start -a -i $(CONTAINER_ID)
 
-	# copy artifacts over
-	rm -rf $(BUILD_DIR)/
-	docker cp $(CONTAINER_ID):$(CONTAINER_DIR)/$(BUILD_DIR)/ .
+# 	# copy artifacts over
+# 	rm -rf $(BUILD_DIR)/
+# 	docker cp $(CONTAINER_ID):$(CONTAINER_DIR)/$(BUILD_DIR)/ .
 
-	# remove container
-	docker rm $(CONTAINER_ID)
+# 	# remove container
+# 	docker rm $(CONTAINER_ID)
 
-image: docker_all version
+image: version
 	docker build --build-arg VCS_REF=$(GIT_COMMIT) -t $(ACCOUNT)/$(APP_NAME):latest .
-	
+
+imageX86: version
+	docker build --platform linux/amd64 --build-arg GIT_COMMIT=$(GIT_COMMIT)  --build-arg APP_VERSION=$(APP_VERSION) --build-arg GIT_STATE=$(GIT_STATE) -t $(ACCOUNT)/$(APP_NAME):latest .
+
 push: image
 	docker push $(ACCOUNT)/$(APP_NAME):latest

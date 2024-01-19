@@ -34,6 +34,7 @@ type App struct {
 	kubeClient        *kubernetes.Clientset
 	kubeNamespace     string
 	kubePodName       string
+	kubeServiceName   string
 	kubeClusterDomain string
 
 	myService *v1.Service
@@ -200,6 +201,7 @@ func (a *App) testLoop() {
 		// get latest dns srv record information
 		portName := a.myService.Spec.Ports[len(a.myService.Spec.Ports)-1].Name
 		portProtocol := strings.ToLower(string(a.myService.Spec.Ports[len(a.myService.Spec.Ports)-1].Protocol))
+		// get my SRV Record from the service discovery
 		cname, srvs, err := net.LookupSRV(portName, portProtocol, discoveryFQDN)
 		if err != nil {
 			log.Warnf("failed to query the service SRV discovery FQDN '%s': %s", discoveryFQDN, err)
@@ -215,33 +217,32 @@ func (a *App) testLoop() {
 			if podIP == nil {
 				continue
 			}
-			// find my RDNS entries
+			// find RDNS entries for the current pod
 			ptrRecords, err := net.LookupAddr(podIP.String())
 			if err != nil {
 				log.Warnf("no RDNS entry for podIP %s: %v", podIP.String(), err)
 				continue
 			}
-			// get my SRV Record from the service discovery
-			var podSRV *net.SRV
+			// get SRV Record from the service discovery
 			for _, srv := range srvs {
 				if slices.Contains(ptrRecords, srv.Target) {
-					podSRV = srv
-					break
+					labels := &Labels{
+						Zone:            a.getZoneForNode(pod.Spec.NodeName),
+						PodName:         pod.Name,
+						PodFQDN:         srv.Target,
+						PodPort:         srv.Port,
+						PodPortProtocol: portProtocol,
+						PodPortName:     portName,
+						NodeName:        pod.Spec.NodeName,
+					}
+					if strings.Compare(a.kubePodName, pod.Name) == 0 {
+						log.Infof("my srv Record is %s out of my rdns ptrRecords %v", srv.Target, ptrRecords)
+						source = labels
+					} else {
+						log.Infof("their srv Record is %s out of their rdns ptrRecords %v", srv.Target, ptrRecords)
+						destinations = append(destinations, labels)
+					}
 				}
-			}
-			l := &Labels{
-				Zone:            a.getZoneForNode(pod.Spec.NodeName),
-				PodName:         pod.Name,
-				PodFQDN:         podSRV.Target,
-				PodPort:         podSRV.Port,
-				PodPortProtocol: portProtocol,
-				PodPortName:     portName,
-				NodeName:        pod.Spec.NodeName,
-			}
-			if pod.Name == a.kubePodName {
-				source = l
-			} else {
-				destinations = append(destinations, l)
 			}
 		}
 
@@ -279,6 +280,9 @@ func (a *App) Run() {
 	if a.kubePodName == "" {
 		log.Fatalf("please specify %s", EnvKubePodName)
 	}
+	// initialize the clusterDomain
+	a.kubeClusterDomain = *clusterDomain
+	a.kubeServiceName = *serviceName
 
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
@@ -293,12 +297,10 @@ func (a *App) Run() {
 	}
 
 	// get my service
-	a.myService, err = a.kubeClient.CoreV1().Services(a.kubeNamespace).Get(context.TODO(), *serviceName, metav1.GetOptions{})
+	a.myService, err = a.kubeClient.CoreV1().Services(a.kubeNamespace).Get(context.TODO(), a.kubeServiceName, metav1.GetOptions{})
 	if err != nil {
-		log.Fatalf("failed to get my service %s/%s: %s", a.kubeNamespace, *serviceName, err)
+		log.Fatalf("failed to get my service %s/%s: %s", a.kubeNamespace, a.kubeServiceName, err)
 	}
-	// initialize the clusterDomain
-	a.kubeClusterDomain = *clusterDomain
 
 	// register prometheus metrics
 	prometheus.MustRegister(a.metricDownloadProbeSize)
