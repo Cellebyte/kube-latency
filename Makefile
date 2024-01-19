@@ -1,4 +1,4 @@
-ACCOUNT=simonswine
+ACCOUNT=cellebyte
 APP_NAME=kube-latency
 
 PACKAGE_NAME=github.com/${ACCOUNT}/${APP_NAME}
@@ -51,10 +51,10 @@ build: depend version
 # 	docker rm $(CONTAINER_ID)
 
 image: version
-	docker build --build-arg VCS_REF=$(GIT_COMMIT) -t $(ACCOUNT)/$(APP_NAME):latest .
+	docker build --build-arg VCS_REF=$(GIT_COMMIT) -t ghcr.io/$(ACCOUNT)/$(APP_NAME):latest .
 
 imageX86: version
-	docker build --platform linux/amd64 --build-arg GIT_COMMIT=$(GIT_COMMIT)  --build-arg APP_VERSION=$(APP_VERSION) --build-arg GIT_STATE=$(GIT_STATE) -t $(ACCOUNT)/$(APP_NAME):latest .
+	docker build --platform linux/amd64 --build-arg GIT_COMMIT=$(GIT_COMMIT)  --build-arg APP_VERSION=$(APP_VERSION) --build-arg GIT_STATE=$(GIT_STATE) -t ghcr.io/$(ACCOUNT)/$(APP_NAME):latest .
 
 push: image
-	docker push $(ACCOUNT)/$(APP_NAME):latest
+	docker push ghcr.io/$(ACCOUNT)/$(APP_NAME):latest

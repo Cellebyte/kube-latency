@@ -13,5 +13,5 @@ resources:
   # - pod.yaml
 images:
 - name: kube-latency-image
-  newName: "harbor.das-schiff.telekom.de/schiff/kube-latency" # please update the repository accordingly
-  newTag: "0.1.9"
+  newName: "ghcr.io/cellebyte/kube-latency" # please update the repository accordingly
+  newTag: "0.2.0"
