@@ -224,28 +224,26 @@ func (a *App) testLoop() {
 				continue
 			}
 			// get SRV Record from the service discovery
+			var labels *Labels = nil
 			for _, srv := range srvs {
-				if slices.Contains(ptrRecords, srv.Target) {
-					labels := &Labels{
-						Zone:            a.getZoneForNode(pod.Spec.NodeName),
-						PodName:         pod.Name,
-						PodFQDN:         srv.Target,
-						PodPort:         srv.Port,
-						PodPortProtocol: portProtocol,
-						PodPortName:     portName,
-						NodeName:        pod.Spec.NodeName,
-					}
-					if strings.Compare(a.kubePodName, pod.Name) == 0 {
-						log.Infof("my srv Record is %s out of my rdns ptrRecords %v", srv.Target, ptrRecords)
-						source = labels
-					} else {
-						log.Infof("their srv Record is %s out of their rdns ptrRecords %v", srv.Target, ptrRecords)
-						destinations = append(destinations, labels)
-					}
+				labels = &Labels{
+					Zone:            a.getZoneForNode(pod.Spec.NodeName),
+					PodName:         pod.Name,
+					PodFQDN:         srv.Target,
+					PodPort:         srv.Port,
+					PodPortProtocol: portProtocol,
+					PodPortName:     portName,
+					NodeName:        pod.Spec.NodeName,
+				}
+				if slices.Contains(ptrRecords, a.kubePodName) {
+					log.Infof("my srv Record is %s out of my rdns ptrRecords %v", srv.Target, ptrRecords)
+					source = labels
+				} else if slices.Contains(ptrRecords, srv.Target) {
+					log.Infof("their srv Record is %s out of their rdns ptrRecords %v", srv.Target, ptrRecords)
+					destinations = append(destinations, labels)
 				}
 			}
 		}
-
 		// run tests if pods found
 		if source == nil || len(destinations) == 0 {
 			log.Info("skip tests no suitable pods found")

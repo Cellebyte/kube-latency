@@ -13,5 +13,5 @@ resources:
   # - pod.yaml
 images:
 - name: kube-latency-image
-  newName: "<your_repository>/kube-latency" # please update the repository accordingly
-  newTag: "0.1.1"
+  newName: "harbor.das-schiff.telekom.de/schiff/kube-latency" # please update the repository accordingly
+  newTag: "0.1.9"
