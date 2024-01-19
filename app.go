@@ -338,7 +338,7 @@ func (a *App) testDownload(source, dest *Labels) {
 	labels = append(labels, dest.Values()...)
 
 	var elapsedTime = result.ContentTransfer(end).Seconds()
-	log.Infof("test ping from '%s' took: [%fs]", url, elapsedTime)
+	log.Debugf("test download from '%s' took: [%fs]", url, elapsedTime)
 
 	a.metricDownloadDurations.WithLabelValues(labels...).Observe(elapsedTime)
 	a.metricDownloadProbeSize.WithLabelValues(labels...).Set(float64(*dataSize))
@@ -352,30 +352,30 @@ func (a *App) testPing(source, dest *Labels) {
 	for i := 1; i <= 5; i++ {
 		result, end, err := a.testHTTP(url)
 		if err != nil {
-			log.Warnf("test ping from '%s' failed: %s", url, err)
+			log.Warnf("test ping to '%s' failed: %s", url, err)
 		}
 		var elapsedTime = result.ContentTransfer(end).Seconds()
-		log.Debugf("test http transfer from '%s' took: [%fs]", url, elapsedTime)
+		log.Debugf("test http transfer to '%s' took: [%fs]", url, elapsedTime)
 		a.metricHTTPDurations.WithLabelValues(labels...).Observe(elapsedTime)
 
 		var totalTime = result.Total(end).Seconds()
-		log.Infof("test ping from '%s' took: [%fs]", url, totalTime)
+		log.Debugf("test ping to '%s' took: [%fs]", url, totalTime)
 		a.metricPingDurations.WithLabelValues(labels...).Observe(totalTime)
 
 		var dnsLookupTime = result.DNSLookup.Seconds()
-		log.Debugf("test dns lookup from '%s' took: [%fs]", url, dnsLookupTime)
+		log.Debugf("test dns lookup to '%s' took: [%fs]", url, dnsLookupTime)
 		a.metricDNSLookupDurations.WithLabelValues(labels...).Observe(dnsLookupTime)
 
 		var tcpTime = result.TCPConnection.Seconds()
-		log.Debugf("test tcp connect from '%s' took: [%fs]", url, tcpTime)
+		log.Debugf("test tcp connect to '%s' took: [%fs]", url, tcpTime)
 		a.metricTCPConnectionDurations.WithLabelValues(labels...).Observe(tcpTime)
 
 		var serverProcessing = result.ServerProcessing.Seconds()
-		log.Debugf("test server processing time from '%s' took: [%fs]", url, serverProcessing)
+		log.Debugf("test server processing time to '%s' took: [%fs]", url, serverProcessing)
 		a.metricServerProcessingDurations.WithLabelValues(labels...).Observe(serverProcessing)
 
 		var startTransfer = result.StartTransfer.Seconds()
-		log.Debugf("test http connect time from '%s' took: [%fs]", url, startTransfer)
+		log.Debugf("test http connect time to '%s' took: [%fs]", url, startTransfer)
 		a.metricStartTransferDurations.WithLabelValues(labels...).Observe(startTransfer)
 	}
 }
