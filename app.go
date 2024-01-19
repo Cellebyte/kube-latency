@@ -66,7 +66,6 @@ type Labels struct {
 func LabelsKeys(prefix string) []string {
 	return []string{
 		prefix + "pod",
-		prefix + "pod_fqdn",
 		prefix + "pod_port_name",
 		prefix + "pod_port_protocol",
 		prefix + "zone",
@@ -76,7 +75,6 @@ func LabelsKeys(prefix string) []string {
 func (l *Labels) Values() []string {
 	return []string{
 		l.PodName,
-		l.PodFQDN,
 		l.PodPortName,
 		l.PodPortProtocol,
 		l.Zone,
@@ -223,24 +221,34 @@ func (a *App) testLoop() {
 				log.Warnf("no RDNS entry for podIP %s: %v", podIP.String(), err)
 				continue
 			}
-			// get SRV Record from the service discovery
-			var labels *Labels = nil
-			for _, srv := range srvs {
-				labels = &Labels{
+			if slices.Contains(ptrRecords, a.kubePodName) {
+				log.Debugf("my srv Record is %s out of my rdns ptrRecords %v", a.kubePodName, ptrRecords)
+				source = &Labels{
 					Zone:            a.getZoneForNode(pod.Spec.NodeName),
 					PodName:         pod.Name,
-					PodFQDN:         srv.Target,
-					PodPort:         srv.Port,
+					PodFQDN:         "",
+					PodPort:         8080,
 					PodPortProtocol: portProtocol,
 					PodPortName:     portName,
 					NodeName:        pod.Spec.NodeName,
 				}
-				if slices.Contains(ptrRecords, a.kubePodName) {
-					log.Infof("my srv Record is %s out of my rdns ptrRecords %v", srv.Target, ptrRecords)
-					source = labels
-				} else if slices.Contains(ptrRecords, srv.Target) {
-					log.Infof("their srv Record is %s out of their rdns ptrRecords %v", srv.Target, ptrRecords)
-					destinations = append(destinations, labels)
+			} else {
+				// get SRV Record from the service discovery
+				var labels *Labels = nil
+				for _, srv := range srvs {
+					if slices.Contains(ptrRecords, srv.Target) {
+						log.Debugf("their srv Record is %s out of their rdns ptrRecords %v", srv.Target, ptrRecords)
+						labels = &Labels{
+							Zone:            a.getZoneForNode(pod.Spec.NodeName),
+							PodName:         pod.Name,
+							PodFQDN:         srv.Target,
+							PodPort:         srv.Port,
+							PodPortProtocol: portProtocol,
+							PodPortName:     portName,
+							NodeName:        pod.Spec.NodeName,
+						}
+						destinations = append(destinations, labels)
+					}
 				}
 			}
 		}
